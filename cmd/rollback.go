@@ -25,6 +25,7 @@ var RollbackCmd = &cobra.Command{
 		}
 
 		db.Init(rootDir)
+		defer db.DB.Close()
 
 		row := db.DB.QueryRow("SELECT timestamp, name FROM migrations_applied ORDER BY id DESC LIMIT 1")
 		var timestamp, name string
@@ -36,7 +37,7 @@ var RollbackCmd = &cobra.Command{
 		filePath := filepath.Join(migrationsPath, fmt.Sprintf("%s_%s.sql", timestamp, name))
 		downSQL, err := extractDownSQL(filePath)
 		if err != nil {
-			log.Fatalf("Error reading migration file: %v", err)
+			log.Fatalf("❌ Error reading migration file %s: %v", filePath, err)
 		}
 
 		if downSQL == "" {
@@ -45,18 +46,38 @@ var RollbackCmd = &cobra.Command{
 		}
 
 		fmt.Printf("⏪ Rolling back migration: %s\n", name)
-		if _, err := db.DB.Exec(downSQL); err != nil {
-			log.Fatalf("❌ Failed to rollback migration: %v", err)
+
+		tx, err := db.DB.Begin()
+		if err != nil {
+			log.Fatalf("❌ Failed to begin transaction: %v", err)
 		}
 
-		_, err = db.DB.Exec("DELETE FROM migrations_applied WHERE timestamp = ?", timestamp)
+		_, err = tx.Exec("BEGIN EXCLUSIVE")
 		if err != nil {
-			log.Fatal(err)
+			tx.Rollback()
+			log.Fatalf("❌ Failed to acquire exclusive lock: %v", err)
 		}
 
-		_, err = db.DB.Exec("INSERT INTO migrations_pending (timestamp, name, created_at) VALUES (?, ?, datetime('now'))", timestamp, name)
+		_, err = tx.Exec(downSQL)
 		if err != nil {
-			log.Fatal(err)
+			tx.Rollback()
+			log.Fatalf("❌ Failed to execute DOWN SQL: %v", err)
+		}
+
+		_, err = tx.Exec("DELETE FROM migrations_applied WHERE timestamp = ?", timestamp)
+		if err != nil {
+			tx.Rollback()
+			log.Fatalf("❌ Failed to delete from migrations_applied: %v", err)
+		}
+
+		_, err = tx.Exec("INSERT INTO migrations_pending (timestamp, name, created_at) VALUES (?, ?, datetime('now'))", timestamp, name)
+		if err != nil {
+			tx.Rollback()
+			log.Fatalf("❌ Failed to re-insert into migrations_pending: %v", err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Fatalf("❌ Failed to commit rollback: %v", err)
 		}
 
 		fmt.Printf("✅ Rolled back migration: %s\n", name)
