@@ -26,11 +26,17 @@ Migo was created to make database migrations simple and efficient. Whether you'r
 
 ## Features ✨
 
-* **Organized Migrations:** Create migration files with timestamped names to keep everything tidy.
-* **Apply Pending Migrations:** Automatically apply all pending migrations with a single command.
-* **Rollback with Ease:** Roll back the last applied migration (don’t worry, it’s like taking a step back after a little mistake!).
-* **SQLite Integration:** Track applied and pending migrations using SQLite (for a cozy and consistent experience).
-* **What's Next:** Support for more databases and multiple rollbacks coming soon!
+- [x] Initialize Project
+- [x] Create Migration
+- [x] Apply Migrations
+- [x] Rollback Last Migration
+- [x] List Migrations
+- [x] Prebuilt Binary for Easy Installation
+- [x] Build from Source
+- [x] Makefile for Common Tasks
+- [ ] Add support for multiple databases (PostgreSQL, MySQL, SQLite, etc.)
+- [ ] Add support for custom migration templates
+- [ ] Add CI/CD integration for automated builds and releases
 
 ## Getting Started 🚀
 
