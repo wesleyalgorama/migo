@@ -8,13 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 )
-
-var mutex sync.Mutex
 
 var UpdateCmd = &cobra.Command{
 	Use:   "update",
@@ -34,9 +31,7 @@ var UpdateCmd = &cobra.Command{
 		}
 
 		db.Init(rootDir)
-
-		mutex.Lock()
-		defer mutex.Unlock()
+		defer db.DB.Close()
 
 		rows, err := db.DB.Query("SELECT timestamp, name FROM migrations_pending ORDER BY timestamp")
 		if err != nil {
@@ -53,27 +48,57 @@ var UpdateCmd = &cobra.Command{
 			filePath := filepath.Join(migrationsPath, fmt.Sprintf("%s_%s.sql", timestamp, name))
 			upSQL, err := extractUpSQL(filePath)
 			if err != nil {
-				log.Fatalf("Error reading migration file %s: %v", filePath, err)
+				log.Fatalf("❌ Error reading migration file %s: %v", filePath, err)
 			}
 
-			if upSQL != "" {
-				fmt.Printf("🚀 Applying migration: %s\n", name)
-				if _, err := db.DB.Exec(upSQL); err != nil {
-					log.Fatalf("❌ Failed to apply migration %s: %v", name, err)
-				}
-
-				_, err = db.DB.Exec("DELETE FROM migrations_pending WHERE timestamp = ?", timestamp)
-				if err != nil {
-					log.Fatal(err)
-				}
-				_, err = db.DB.Exec("INSERT INTO migrations_applied (timestamp, name, applied_at) VALUES (?, ?, ?)",
-					timestamp, name, time.Now().Format(time.RFC3339))
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				fmt.Printf("✅ Migration '%s' applied successfully.\n", name)
+			if upSQL == "" {
+				fmt.Printf("⚠️  Skipping empty migration: %s\n", name)
+				continue
 			}
+
+			fmt.Printf("🚀 Applying migration: %s\n", name)
+
+			tx, err := db.DB.Begin()
+			if err != nil {
+				log.Fatalf("❌ Failed to begin transaction: %v", err)
+			}
+
+			_, err = tx.Exec("PRAGMA busy_timeout = 5000")
+			if err != nil {
+				tx.Rollback()
+				log.Fatal(err)
+			}
+
+			_, err = tx.Exec("BEGIN EXCLUSIVE")
+			if err != nil {
+				tx.Rollback()
+				log.Fatalf("❌ Failed to acquire exclusive lock: %v", err)
+			}
+
+			_, err = tx.Exec(upSQL)
+			if err != nil {
+				tx.Rollback()
+				log.Fatalf("❌ Failed to apply migration %s: %v", name, err)
+			}
+
+			_, err = tx.Exec("DELETE FROM migrations_pending WHERE timestamp = ?", timestamp)
+			if err != nil {
+				tx.Rollback()
+				log.Fatal(err)
+			}
+
+			_, err = tx.Exec("INSERT INTO migrations_applied (timestamp, name, applied_at) VALUES (?, ?, ?)",
+				timestamp, name, time.Now().Format(time.RFC3339))
+			if err != nil {
+				tx.Rollback()
+				log.Fatal(err)
+			}
+
+			if err := tx.Commit(); err != nil {
+				log.Fatalf("❌ Failed to commit migration %s: %v", name, err)
+			}
+
+			fmt.Printf("✅ Migration '%s' applied successfully.\n", name)
 		}
 	},
 }
