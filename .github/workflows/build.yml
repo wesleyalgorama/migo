@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -20,10 +22,7 @@ jobs:
           go-version: 'stable'
 
       - name: 📦 Install dependencies
-        run: go mod download
-
-      - name: 🛠️ Build the project
-        run: make build
+        run: go mod download      
 
       - name: ✅ Run tests
         run: |
@@ -33,10 +32,24 @@ jobs:
             echo "No tests found."
           fi
 
-      - name: 🧹 Run linter (optional)
+      - name: 🛠️ Build binary
         run: |
-          if command -v golint >/dev/null 2>&1; then
-            golint ./...
-          else
-            echo "Skipping golint (not installed)."
-          fi
+          mkdir -p dist
+          go build -o dist/migo ./cmd/migo
+
+      - name: 📦 Package (tar.gz)
+        run: |
+          cd dist
+          tar -czvf migo-linux-amd64.tar.gz migo
+
+      - name: 🚀 Publish to GitHub Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ github.ref_name }}
+          files: dist/migo-linux-amd64.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🧹 Run linter
+      - run: go install golang.org/x/lint/golint@latest
+
