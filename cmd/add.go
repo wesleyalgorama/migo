@@ -30,8 +30,15 @@ var AddCmd = &cobra.Command{
 			return
 		}
 
+		statePath := filepath.Join(rootDir, "state")
+		if _, err := os.Stat(statePath); os.IsNotExist(err) {
+			if err := os.MkdirAll(statePath, os.ModePerm); err != nil {
+				log.Fatalf("❌ Failed to create state directory: %v", err)
+			}
+		}
+
 		timestamp := time.Now().Format("20060102150405")
-		fileName := fmt.Sprintf("%s/migrations/%s_%s.sql", rootDir, timestamp, migrationName)
+		fileName := filepath.Join(migrationsPath, fmt.Sprintf("%s_%s.sql", timestamp, migrationName))
 
 		file, err := os.Create(fileName)
 		if err != nil {
@@ -45,10 +52,12 @@ var AddCmd = &cobra.Command{
 		}
 
 		db.Init(rootDir)
+		defer db.DB.Close()
+
 		_, err = db.DB.Exec("INSERT INTO migrations_pending (timestamp, name, created_at) VALUES (?, ?, ?)",
 			timestamp, migrationName, time.Now().Format(time.RFC3339))
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("❌ Failed to insert migration into pending list: %v", err)
 		}
 
 		fmt.Printf("✅ Migration '%s' created at: %s\n", migrationName, fileName)
