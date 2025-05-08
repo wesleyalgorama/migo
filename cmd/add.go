@@ -38,7 +38,7 @@ var AddCmd = &cobra.Command{
 		}
 
 		timestamp := time.Now().Format("20060102150405")
-		fileName := filepath.Join(migrationsPath, fmt.Sprintf("%s_%s.sql", timestamp, migrationName))
+		fileName := fmt.Sprintf("%s/migrations/%s_%s.sql", rootDir, timestamp, migrationName)
 
 		file, err := os.Create(fileName)
 		if err != nil {
@@ -54,10 +54,17 @@ var AddCmd = &cobra.Command{
 		db.Init(rootDir)
 		defer db.DB.Close()
 
-		_, err = db.DB.Exec("INSERT INTO migrations_pending (timestamp, name, created_at) VALUES (?, ?, ?)",
+		tx, err := db.DB.Begin()
+		if err != nil {
+			log.Fatalf("❌ Failed to begin transaction: %v", err)
+		}
+		defer tx.Commit()
+
+		_, err = tx.Exec("INSERT INTO migrations_pending (timestamp, name, created_at) VALUES (?, ?, ?)",
 			timestamp, migrationName, time.Now().Format(time.RFC3339))
 		if err != nil {
-			log.Fatalf("❌ Failed to insert migration into pending list: %v", err)
+			tx.Rollback()
+			log.Fatalf("❌ Failed to insert new migration into pending migrations: %v", err)
 		}
 
 		fmt.Printf("✅ Migration '%s' created at: %s\n", migrationName, fileName)
