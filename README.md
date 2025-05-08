@@ -8,6 +8,7 @@ Migo is a lightweight, fast, and easy-to-use migration tool designed to make you
 * [Features](#features)
 * [Getting Started](#getting-started)
 * [Usage](#usage)
+* [Commands](#commands)
 * [Contributing](#contributing)
 * [License](#license)
 
@@ -114,7 +115,7 @@ migo init --project ./backend
 Adding a new migration? Migo makes it a snap:
 
 ```bash
-migo add --name=create_users_table
+migo add --name create_users_table
 ```
 
 This will create a migration file like:
@@ -149,6 +150,16 @@ Made a mistake? No worries, just roll back the last migration:
 ```bash
 migo rollback
 ```
+
+## Commands ⚡
+
+Here are the available commands in Migo:
+
+* **`migo init`**: Initializes the migration project with the necessary folder structure.
+* **`migo add --name <migration_name>`**: Creates a new migration file with the specified name. The name is appended to the timestamp to ensure a unique file.
+* **`migo update`**: Applies all pending migrations to the database.
+* **`migo rollback`**: Rolls back the last applied migration.
+* **`migo list`**: Lists all migrations along with their status (either "Applied" or "Pending").
 
 ### Makefile Commands 🛠️
 
