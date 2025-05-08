@@ -34,9 +34,10 @@ Migo was created to make database migrations simple and efficient. Whether you'r
 - [x] Prebuilt Binary for Easy Installation
 - [x] Build from Source
 - [x] Makefile for Common Tasks
+- [x] Add CI/CD integration for automated builds and releases
+- [ ] Create easy installer for multiple platforms (Windows, Linux, macOS)
 - [ ] Add support for multiple databases (PostgreSQL, MySQL, SQLite, etc.)
 - [ ] Add support for custom migration templates
-- [ ] Add CI/CD integration for automated builds and releases
 
 ## Getting Started 🚀
 
