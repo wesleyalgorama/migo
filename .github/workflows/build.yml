@@ -1,0 +1,42 @@
+name: Build Migo
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build with latest Go
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🧰 Set up Go (latest stable)
+        uses: actions/setup-go@v4
+        with:
+          go-version: 'stable'
+
+      - name: 📦 Install dependencies
+        run: go mod download
+
+      - name: 🛠️ Build the project
+        run: make build
+
+      - name: ✅ Run tests
+        run: |
+          if ls *_test.go >/dev/null 2>&1; then
+            go test ./...
+          else
+            echo "No tests found."
+          fi
+
+      - name: 🧹 Run linter (optional)
+        run: |
+          if command -v golint >/dev/null 2>&1; then
+            golint ./...
+          else
+            echo "Skipping golint (not installed)."
+          fi
